@@ -1,5 +1,3 @@
-# The local registry branch first: it holds the modules under test.
-common --registry=file:///data/tmp/ai/pub/bazel-registry
 common --registry=https://raw.githubusercontent.com/filmil/bazel-registry/main
 common --registry=https://bcr.bazel.build
 build --java_runtime_version=remotejdk_21
