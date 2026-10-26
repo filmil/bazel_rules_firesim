@@ -2,8 +2,8 @@
 common --registry=file:///data/tmp/ai/pub/bazel-registry
 common --registry=https://raw.githubusercontent.com/filmil/bazel-registry/main
 common --registry=https://bcr.bazel.build
-common --local_resources=cpu=HOST_CPUS*.5
 build --java_runtime_version=remotejdk_21
 build --tool_java_runtime_version=remotejdk_21
 build --incompatible_enable_cc_toolchain_resolution
 build --@rules_vivado//:vivado_mode=hermetic
+try-import %workspace%/.bazelrc.user

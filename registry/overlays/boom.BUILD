@@ -1,0 +1,8 @@
+load("@//overlays:defs.bzl", "chisel6_library")
+
+chisel6_library(
+    name = "boom",
+    srcs = glob(["src/main/scala/**/*.scala"]),
+    resource_dir = "src/main/resources",
+    deps = ["@rocket_chip", "@pmu", "@pmu//:pmu_tilelink"],
+)

@@ -1,0 +1,8 @@
+load("@//overlays:defs.bzl", "chisel6_library")
+
+chisel6_library(
+    name = "bar_fetchers",
+    srcs = glob(["src/main/scala/**/*.scala"]),
+    resource_dir = "src/main/resources",
+    deps = ["@rocket_chip"],
+)

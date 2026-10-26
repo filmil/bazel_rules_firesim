@@ -36,8 +36,14 @@ FireSimTargetInfo = provider(
 # The tools are JVM programs and run in the target configuration: an
 # exec-configured copy would compile the whole generator a second time.
 
+def _split_config(attr, value):
+    parts = value.split(":")
+    if len(parts) != 2 or not parts[0] or not parts[1]:
+        fail("%s must be package:Config (Configs may be joined with _), got %r" % (attr, value))
+    return parts
+
 def _elaborate_impl(ctx):
-    config = ctx.attr.config.split(":")[-1]
+    _, config = _split_config("config", ctx.attr.config)
     long = "%s.%s" % (ctx.attr.top_module, config)
     fir = ctx.actions.declare_file("%s/%s.sfc.fir" % (ctx.label.name, long))
     anno = ctx.actions.declare_file("%s/%s.anno.json" % (ctx.label.name, long))
@@ -69,6 +75,7 @@ def _elaborate_impl(ctx):
     return [
         DefaultInfo(files = depset([fir, anno])),
         FireSimTargetInfo(fir = fir, anno = anno),
+        OutputGroupInfo(logs = depset([log])),
     ]
 
 firesim_elaborate = rule(
@@ -93,7 +100,7 @@ def _goldengate_impl(ctx):
     t = ctx.attr.target[FireSimTargetInfo]
     outs = {s: ctx.actions.declare_file("%s/FireSim-generated.%s" % (ctx.label.name, s)) for s in _GG_OUTS}
     log = ctx.actions.declare_file("%s/goldengate.log" % ctx.label.name)
-    package, config = ctx.attr.platform_config.split(":")
+    package, config = _split_config("platform_config", ctx.attr.platform_config)
     ctx.actions.run_shell(
         outputs = outs.values() + [log],
         inputs = [t.fir, t.anno],
@@ -102,7 +109,7 @@ def _goldengate_impl(ctx):
         command = """"$1" -i "$2" -faf "$3" -td "$4" -ggcp "$5" -ggcs "$6" \\
     --output-filename-base FireSim-generated --allow-unrecognized-annotations --no-dedup \\
     > "{log}" 2>&1 || {{ tail -40 "{log}" >&2; exit 1; }}
-grep -sh ^ "$4/firrtl_black_box_resource_files.f" | xargs -r cat >> "$4/FireSim-generated.sv"
+grep -sh ^ "$4/firrtl_black_box_resource_files.f" | xargs -r -d '\\n' cat >> "$4/FireSim-generated.sv"
 {norm} "$4/FireSim-generated.sv"
 """.format(log = log.path, norm = _NORMALIZE),
         arguments = [
@@ -121,6 +128,7 @@ grep -sh ^ "$4/firrtl_black_box_resource_files.f" | xargs -r cat >> "$4/FireSim-
         OutputGroupInfo(
             header = depset([outs["const.h"]]),
             hdl = depset([outs[s] for s in ["sv", "defines.vh", "synthesis.xdc", "implementation.xdc"]]),
+            logs = depset([log]),
         ),
     ]
 
@@ -188,12 +196,17 @@ def _bitstream_impl(ctx):
     if len(tops) != 1:
         fail("board has no single %s" % marker)
     board_root = tops[0].path[:-len(marker) - 1]
+    board_files = ctx.actions.args()
+    board_files.set_param_file_format("multiline")
+    board_files.add_all([f.path[len(board_root) + 1:] for f in ctx.files.board])
+    board_list = ctx.actions.declare_file("%s/board_files.txt" % ctx.label.name)
+    ctx.actions.write(board_list, board_files)
     names = ["firesim.bit", "firesim.mcs", "timing_summary.rpt", "utilization.rpt", "vivado.log"]
     outs = [ctx.actions.declare_file("%s/%s" % (ctx.label.name, n)) for n in names]
     lock = 'flock -o -w 5400 "%s" ' % ctx.attr.lock if ctx.attr.lock else ""
     ctx.actions.run_shell(
         outputs = outs,
-        inputs = ctx.files.board + hdl,
+        inputs = ctx.files.board + hdl + [board_list],
         command = """set -e
 EXECROOT="$PWD"
 OUT="$EXECROOT/{outdir}"
@@ -202,12 +215,13 @@ trap 'rm -rf "$W"' EXIT
 # Bazel clears the environment; Vivado's startup scripts need a HOME.
 export HOME="$W/home"
 mkdir -p "$HOME"
-cp -rL "{board}/." "$W/"
+# Only the board files Bazel declared, not the whole repository directory.
+(cd "{board}" && xargs -d '\\n' cp -L --parents -t "$W/") < "{board_list}"
 chmod -R u+w "$W"
 for f in {hdl}; do cp "$EXECROOT/$f" "$W/{proj}/{hdl_dir}/"; done
 cd "$W/{proj}"
 {lock}"{vivado}/bin/vivado" -mode batch -nojournal -log "$OUT/vivado.log" -source {script} -tclargs {freq} {strategy} > "$W/vivado.out" 2>&1 \\
-    || {{ grep -E "^ERROR" "$W/vivado.out" | head -20 >&2; exit 1; }}
+    || {{ grep -E "^ERROR" "$W/vivado.out" | head -20 >&2; tail -40 "$W/vivado.out" >&2; exit 1; }}
 cp {bit} "$OUT/firesim.bit"
 cp {mcs} "$OUT/firesim.mcs"
 cp {impl}/*_timing_summary_routed.rpt "$OUT/timing_summary.rpt"
@@ -215,6 +229,7 @@ cp {impl}/*_utilization_placed.rpt "$OUT/utilization.rpt"
 """.format(
             outdir = outs[0].dirname,
             board = board_root,
+            board_list = board_list.path,
             hdl = " ".join(['"%s"' % f.path for f in hdl]),
             proj = ctx.attr.project_dir,
             hdl_dir = ctx.attr.hdl_dir,
@@ -232,7 +247,7 @@ cp {impl}/*_utilization_placed.rpt "$OUT/utilization.rpt"
         # Vivado runs from its install on the host, outside the sandbox.
         execution_requirements = {"no-sandbox": "1", "no-remote": "1"},
     )
-    return [DefaultInfo(files = depset(outs[:4]))]
+    return [DefaultInfo(files = depset(outs[:4])), OutputGroupInfo(logs = depset([outs[4]]))]
 
 firesim_bitstream = rule(
     implementation = _bitstream_impl,

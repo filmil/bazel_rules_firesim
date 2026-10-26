@@ -51,7 +51,9 @@ and used here as a tool.
 state: Scala 2.13.16 (Chisel 6.7.0's plugin is built for it exactly), the
 transitive toolchain, a C++ toolchain and Vivado. See
 [`integration/MODULE.bazel`](integration/MODULE.bazel), which is the whole
-of it.
+of it, plus a lock file for `@chipyard_maven` (only the root module can give
+one). Its Vivado lines name eph4's install cache and installer archive; a
+consumer names their own.
 
 `BUILD.bazel`, FireSim's `nitefury_firesim_rocket_singlecore_no_nic` recipe:
 
@@ -87,7 +89,21 @@ firesim_bitstream(
 On one machine (eph4), from a warm cache: elaboration and Golden Gate take
 about 1.5 minutes, the bitstream about 30 (WNS +0.318 ns, 69% of LUTs).
 
+## Updating
+
+`registry/` holds the overlay BUILD files, the patches, the upstream pins
+and `mkregistry.py`, which writes the registry entries from them. A later
+Chipyard means new pins and a re-run.
+
 ## Notes
+
+- **Linux only,** as FireSim and Vivado are.
+- **Tools in the target configuration.** The generator and Golden Gate are
+  JVM programs and run as built for the target platform, because an
+  exec-configured copy would compile the whole generator a second time. A
+  build with `--platforms` set to another architecture won't work.
+- **Vivado** is the host install rules_vivado resolves; it is not tracked as
+  an action input, as in rules_vivado's own rules.
 
 - **Source locators.** Chisel writes each locator as the file's real path,
   and Bazel's external repositories resolve into the repository cache, so

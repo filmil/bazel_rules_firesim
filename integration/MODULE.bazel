@@ -7,10 +7,13 @@ bazel_dep(name = "rules_firesim", version = "0.1.0")
 bazel_dep(name = "chipyard_firechip", version = "1.15.0")
 bazel_dep(name = "chipyard_scala", version = "0.1.0")
 bazel_dep(name = "rules_scala", version = "7.4.0")
+bazel_dep(name = "rules_jvm_external", version = "6.7")
 bazel_dep(name = "rules_vivado", version = "4.1.1")
 bazel_dep(name = "toolchains_llvm", version = "1.12.0")
 
-# This workspace tests the modules before they are released.
+# Until the three have releases, this workspace takes them from local
+# paths, and the modules from the local registry branch (.bazelrc). Both go
+# at publication.
 local_path_override(module_name = "rules_firesim", path = "..")
 local_path_override(module_name = "chipyard_scala", path = "../chipyard_scala")
 archive_override(
@@ -49,6 +52,15 @@ scala_deps.overridden_artifact(
     sha256 = "fb49ccd9cac7464486ab993cda20a3c1569d8ef26f052e897577ad2a4970fb1d",
     deps = ["@io_bazel_rules_scala_scala_library"],
 )
+
+# The Maven set the Chipyard modules share, pinned: only the root module
+# can give a lock file.
+maven = use_extension("@rules_jvm_external//:extensions.bzl", "maven")
+maven.install(
+    name = "chipyard_maven",
+    lock_file = "//:chipyard_maven_install.json",
+)
+use_repo(maven, "chipyard_maven")
 
 # Chipyard's libraries compile against full transitive classpaths, as sbt's.
 register_toolchains("@chipyard_scala//:transitive_scala")
