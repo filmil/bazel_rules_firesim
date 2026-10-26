@@ -8,12 +8,7 @@
 
 load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library")
 
-# rules_vivado 4.1.1 does not export vivado_config from rules.bzl yet.
-load("@rules_vivado//internal:toolchain.bzl", _vivado_config = "vivado_config")
-
-# rules_vivado exports the toolchain type as a bare string, which resolves in
-# the caller's repository (rules_vivado issue 159); this is the label it means.
-_VIVADO_TOOLCHAIN_TYPE = "@rules_vivado//toolchains:toolchain_type"
+load("@rules_vivado//build/vivado:rules.bzl", _VIVADO_TOOLCHAIN_TYPE = "VIVADO_TOOLCHAIN_TYPE", _vivado_config = "vivado_config")
 
 # Chisel records each source locator as the file's real path minus
 # chisel.project.root, and Bazel's external repositories resolve into the
