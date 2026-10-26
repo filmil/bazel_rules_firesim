@@ -11,16 +11,6 @@ bazel_dep(name = "rules_jvm_external", version = "6.7")
 bazel_dep(name = "rules_vivado", version = "4.1.1")
 bazel_dep(name = "toolchains_llvm", version = "1.12.0")
 
-# Until the three have releases, this workspace takes them from local
-# paths, and the modules from the local registry branch (.bazelrc). Both go
-# at publication.
-local_path_override(module_name = "rules_firesim", path = "..")
-local_path_override(module_name = "chipyard_scala", path = "../chipyard_scala")
-archive_override(
-    module_name = "firesim_goldengate",
-    urls = ["file:///data/tmp/ai/pub/bazel_firesim_goldengate/bazel-bin/firesim_goldengate-1.22.0.zip"],
-)
-
 # --- What every consumer of the Chipyard modules states (README.md) ---
 
 # Scala 2.13.16, Chipyard's: rules_scala takes the version from the root
