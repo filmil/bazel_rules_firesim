@@ -151,7 +151,7 @@ _firesim_header = rule(
     attrs = {"design": attr.label(mandatory = True)},
 )
 
-def firesim_driver(name, design, driver_lib, platform = "rhsresearch_nitefury_ii", copts = [], **kwargs):
+def firesim_driver(name, design, driver_lib, platform = "rhsresearch_nitefury_ii", simif = None, copts = [], deps = [], **kwargs):
     """The host driver for one firesim_goldengate design.
 
     FireSim's platform simif, main and entry, compiled against the design's
@@ -163,7 +163,12 @@ def firesim_driver(name, design, driver_lib, platform = "rhsresearch_nitefury_ii
       driver_lib: the target's bridge drivers, a cc_library; for Chipyard's
         FireChip targets, @chipyard_firechip//:firechip_driver_lib.
       platform: FireSim's platform name, as in simif_<platform>.cc.
+      simif: a platform file of the caller's own, in place of FireSim's
+        simif_<platform>.cc: one that defines create_simif() and a
+        simif_t for a host link FireSim doesn't ship, such as Ethernet.
+        `platform` is then unused.
       copts: more compiler options.
+      deps: more libraries, for the caller's simif.
       **kwargs: passed to cc_binary.
     """
     _firesim_header(name = name + "_header", design = design)
@@ -175,12 +180,12 @@ def firesim_driver(name, design, driver_lib, platform = "rhsresearch_nitefury_ii
     cc_binary(
         name = name,
         srcs = [
-            Label("@firesim_target//:sim/midas/src/main/cc/simif_%s.cc" % platform),
+            simif if simif else Label("@firesim_target//:sim/midas/src/main/cc/simif_%s.cc" % platform),
             Label("@firesim_target//:sim/midas/src/main/cc/main.cc"),
             Label("@firesim_target//:sim/midas/src/main/cc/entry.cc"),
         ],
         copts = ["-std=c++20", "-DFIRESIM", "-Wno-inconsistent-missing-override"] + copts,
-        deps = [":" + name + "_const", driver_lib],
+        deps = [":" + name + "_const", driver_lib] + deps,
         **kwargs
     )
 
