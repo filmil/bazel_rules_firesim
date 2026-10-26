@@ -78,7 +78,11 @@ MODULES = {
                ("libdwarf", "2.2.0.bcr.1"), ("elfutils", "0.195")) + CC, True,
         ["chipyard-firechip-optional-generators.patch"], ["@chipyard_firechip//:generator", "@chipyard_firechip//:firechip_driver_lib"]),
 }
-VERSIONS = {"firesim_target": "1.22.0", "chipyard_firechip": "1.15.0"}
+# A module's version here is the one the script writes. Published
+# versions are never rewritten: a change to an overlay is a new version
+# (1.22.0.bcr.1 exports FireSim's example drivers), and metadata.json
+# gains it beside the old ones.
+VERSIONS = {"firesim_target": "1.22.0.bcr.1", "chipyard_firechip": "1.15.0"}
 
 RISCV_ISA_SIM_BUILD = '''load("@rules_foreign_cc//foreign_cc:defs.bzl", "configure_make")
 
@@ -154,8 +158,12 @@ def write_entry(name, version, url, strip, integrity, files, patches, targets, h
         'matrix:\n  platform: ["debian11", "ubuntu2204"]\n  bazel: ["8.x"]\ntasks:\n  verify_targets:\n'
         '    name: Verify build targets\n    platform: ${{ platform }}\n    bazel: ${{ bazel }}\n    build_targets:\n'
         + "".join('      - "%s"\n' % t for t in targets))
+    mp = os.path.join(REG, "modules", name, "metadata.json")
+    versions = json.load(open(mp))["versions"] if os.path.exists(mp) else []
+    if version not in versions:
+        versions.append(version)
     meta = {"homepage": homepage, "maintainers": MAINT, "repository": [repo_for_meta] if repo_for_meta else [],
-            "versions": [version], "yanked_versions": {}}
+            "versions": versions, "yanked_versions": {}}
     open(os.path.join(REG, "modules", name, "metadata.json"), "w").write(json.dumps(meta, indent=4) + "\n")
 
 for name, (pin, trial, deps, maven, patches, targets) in MODULES.items():
