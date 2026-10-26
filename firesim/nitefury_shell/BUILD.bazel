@@ -224,7 +224,12 @@ genrule(
     name = "early_xdc",
     srcs = ["@firesim_platform_nitefury//:Sample-Projects/Project-0/cl_firesim/Nitefury-II/project/project.srcs/constrs_1/imports/constraints/early.xdc"],
     outs = ["early.xdc"],
-    cmd = "tr -d '\\r' < $< | grep -v -E 'GTPE2_CHANNEL|pcie_mgt_' > $@",
+    # The map is 20 lines (4 LOCs, 16 pins); anything else means the board's
+    # early.xdc changed, and the filter needs a look.
+    cmd = "tr -d '\\r' < $< > $@.in && " +
+          "n=$$(grep -c -E 'GTPE2_CHANNEL|pcie_mgt_' $@.in) && " +
+          "[ \"$$n\" = 20 ] || { echo \"early.xdc: $$n lane-map lines, expected 20\" >&2; exit 1; }; " +
+          "grep -v -E 'GTPE2_CHANNEL|pcie_mgt_' $@.in > $@; rm -f $@.in",
 )
 
 # The MIG's project file as the block design resolved it (200 MHz input,

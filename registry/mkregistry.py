@@ -192,7 +192,8 @@ print("wrote", len(MODULES) + 2, "modules")
 # (Bazel expands no patterns there).
 ign = os.path.join(REG, ".bazelignore")
 if os.path.exists(ign):
-    have = set(open(ign).read().split("\n"))
+    text = open(ign).read()
+    have = set(text.split("\n"))
     names = list(MODULES) + ["riscv_isa_sim", "firesim_platform_nitefury"]
     new = sorted(
         "modules/%s/%s/overlay" % (n, v)
@@ -201,6 +202,8 @@ if os.path.exists(ign):
         if os.path.isdir(os.path.join(REG, "modules", n, v, "overlay"))
     )
     with open(ign, "a") as f:
+        if text and not text.endswith("\n"):
+            f.write("\n")
         for line in new:
             if line not in have:
                 f.write(line + "\n")
