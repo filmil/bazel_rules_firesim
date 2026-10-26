@@ -11,6 +11,11 @@ bazel_dep(name = "rules_jvm_external", version = "6.7")
 bazel_dep(name = "rules_vivado", version = "4.1.1")
 bazel_dep(name = "toolchains_llvm", version = "1.12.0")
 
+# This workspace tests this repository's own code: rules_firesim and
+# chipyard_scala come from the checkout, everything else from the registries.
+local_path_override(module_name = "rules_firesim", path = "..")
+local_path_override(module_name = "chipyard_scala", path = "../chipyard_scala")
+
 # --- What every consumer of the Chipyard modules states (README.md) ---
 
 # Scala 2.13.16, Chipyard's: rules_scala takes the version from the root
