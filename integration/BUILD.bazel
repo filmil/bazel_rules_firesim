@@ -34,3 +34,12 @@ firesim_nitefury_shell(
     design = ":rocket_nitefury",
     tags = ["manual"],
 )
+
+# The same driver with its platform file given as `simif`, the way a host
+# link FireSim doesn't ship (Ethernet, say) brings its own.
+firesim_driver(
+    name = "rocket_nitefury_driver_own_simif",
+    design = ":rocket_nitefury",
+    driver_lib = "@chipyard_firechip//:firechip_driver_lib",
+    simif = "@firesim_target//:sim/midas/src/main/cc/simif_rhsresearch_nitefury_ii.cc",
+)
