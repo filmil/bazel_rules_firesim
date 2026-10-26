@@ -123,6 +123,9 @@ grep -sh ^ "$4/firrtl_black_box_resource_files.f" | xargs -r -d '\\n' cat >> "$4
         OutputGroupInfo(
             header = depset([outs["const.h"]]),
             hdl = depset([outs[s] for s in ["sv", "defines.vh", "synthesis.xdc", "implementation.xdc"]]),
+            sv = depset([outs["sv"]]),
+            synthesis_xdc = depset([outs["synthesis.xdc"]]),
+            implementation_xdc = depset([outs["implementation.xdc"]]),
             logs = depset([log]),
         ),
     ]
