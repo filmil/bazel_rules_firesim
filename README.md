@@ -116,7 +116,6 @@ Chipyard means new pins and a re-run.
 - **No firtool.** FireSim's flow has Golden Gate write the Verilog, so
   CIRCT is not needed.
 - **Vivado** runs on the host, from rules_vivado's hermetic install; docker
-  mode is not supported yet. `firesim_bitstream` uses rules_vivado's
-  internal `vivado_config` until rules_vivado exports it.
+  mode is not supported yet.
 - **Running a simulation** needs the board on PCIe (XDMA). The driver builds
   and stops where it looks for the device.
