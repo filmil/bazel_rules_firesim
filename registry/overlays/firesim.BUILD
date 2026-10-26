@@ -27,3 +27,15 @@ cc_library(
 # The per-design driver sources, compiled by the consumer with the design's
 # generated header.
 exports_files(glob(["sim/midas/src/main/cc/*.cc"]))
+
+# FireSim's example targets' drivers (GCD's TestGCD.cc and the rest), for a
+# platform's own build of an example, as FireSim's midasexamples
+# driver.mk compiles them.
+exports_files(glob(["sim/src/main/cc/midasexamples/*.cc"]))
+
+cc_library(
+    name = "examples_driver_hdrs",
+    hdrs = glob(["sim/src/main/cc/**/*.h"]),
+    includes = ["sim/src/main/cc", "sim/src/main/cc/midasexamples"],
+    visibility = ["//visibility:public"],
+)
