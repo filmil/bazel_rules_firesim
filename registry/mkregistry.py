@@ -106,7 +106,10 @@ configure_make(
 
 NITEFURY_BUILD = '''# FireSim's Nitefury II board project (the NiteFury-and-LiteFury-firesim
 # submodule of FireSim 1.22.0), patched for Vivado 2025.2. The data that
-# @rules_firesim's firesim_bitstream builds from.
+# @rules_firesim's firesim_bitstream builds from; its single files are
+# exported for @rules_firesim//firesim/nitefury_shell.
+exports_files(glob(["**"], exclude = ["BUILD.bazel", "MODULE.bazel"]))
+
 filegroup(
     name = "all",
     srcs = glob(["**"], exclude = ["BUILD.bazel", "MODULE.bazel"]),
@@ -183,3 +186,21 @@ write_entry("firesim_platform_nitefury", "1.22.0",
     ["nitefury-vivado-2025.2.patch"], ["@firesim_platform_nitefury//:all"],
     "https://github.com/firesim/NiteFury-and-LiteFury-firesim", "github:firesim/NiteFury-and-LiteFury-firesim")
 print("wrote", len(MODULES) + 2, "modules")
+
+# The registry builds //... and would load each overlay's BUILD files as its
+# own packages, so every overlay directory is listed in its .bazelignore
+# (Bazel expands no patterns there).
+ign = os.path.join(REG, ".bazelignore")
+if os.path.exists(ign):
+    have = set(open(ign).read().split("\n"))
+    names = list(MODULES) + ["riscv_isa_sim", "firesim_platform_nitefury"]
+    new = sorted(
+        "modules/%s/%s/overlay" % (n, v)
+        for n in names
+        for v in os.listdir(os.path.join(REG, "modules", n))
+        if os.path.isdir(os.path.join(REG, "modules", n, v, "overlay"))
+    )
+    with open(ign, "a") as f:
+        for line in new:
+            if line not in have:
+                f.write(line + "\n")

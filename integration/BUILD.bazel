@@ -1,4 +1,5 @@
 load("@rules_firesim//firesim:defs.bzl", "firesim_bitstream", "firesim_driver", "firesim_elaborate", "firesim_goldengate")
+load("@rules_firesim//firesim/nitefury_shell:defs.bzl", "firesim_nitefury_shell")
 
 firesim_elaborate(
     name = "rocket",
@@ -24,5 +25,12 @@ firesim_bitstream(
     name = "rocket_nitefury_bitstream",
     design = ":rocket_nitefury",
     lock = "/data/cache/vivado-install/vivado.lock",
+    tags = ["manual"],
+)
+
+# The same design on the opt-in shell without a block design.
+firesim_nitefury_shell(
+    name = "rocket_nitefury_shell",
+    design = ":rocket_nitefury",
     tags = ["manual"],
 )

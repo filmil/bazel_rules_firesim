@@ -89,6 +89,47 @@ firesim_bitstream(
 On one machine (eph4), from a warm cache: elaboration and Golden Gate take
 about 1.5 minutes, the bitstream about 30 (WNS +0.318 ns, 69% of LUTs).
 
+## Opt-in: the Nitefury shell without a block design
+
+`firesim_bitstream` runs the board project's own script. As an
+alternative, `@rules_firesim//firesim/nitefury_shell:defs.bzl` builds the
+same shell on rules_vivado's own rules: `vivado_ip` per core, then
+`vivado_synthesis2` and `vivado_place_and_route2`, so cores and synthesis
+are cached on their own.
+
+```starlark
+load("@rules_firesim//firesim/nitefury_shell:defs.bzl", "firesim_nitefury_shell")
+
+firesim_nitefury_shell(
+    name = "rocket_nitefury_shell",
+    design = ":rocket_nitefury",
+    tags = ["manual"],
+)
+```
+
+On the Rocket recipe, the two builds compare as follows:
+
+| | Without block design | Board script |
+|---|---|---|
+| WNS | +0.152 ns | +0.318 ns |
+| LUTs | 92,263 | 92,354 |
+| Time | 66 min | 32 min |
+
+The shell without a block design spends most of its time in synthesis,
+which a rebuild with only a changed constraint skips.
+
+What differs from the block design:
+
+- The two AXI interconnects are the cores Vivado puts inside them.
+- XDMA's own lane placement wins outside a block design, so a step after
+  synthesis sets the board's PCIe lane swap and fails the build unless all
+  16 `pcie_mgt` pins match the board. Vivado checks this, but no board has
+  run it yet.
+
+The board's files come from `@firesim_platform_nitefury`; the two that
+change (`early.xdc` less the lane map, the MIG project file without a BOM)
+are made by genrules.
+
 ## Updating
 
 `registry/` holds the overlay BUILD files, the patches, the upstream pins
