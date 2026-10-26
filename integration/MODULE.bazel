@@ -1,0 +1,68 @@
+module(name = "rules_firesim_integration")
+
+# FireSim's Nitefury II recipe nitefury_firesim_rocket_singlecore_no_nic,
+# built from source as a consumer of rules_firesim would build it.
+
+bazel_dep(name = "rules_firesim", version = "0.1.0")
+bazel_dep(name = "chipyard_firechip", version = "1.15.0")
+bazel_dep(name = "chipyard_scala", version = "0.1.0")
+bazel_dep(name = "rules_scala", version = "7.4.0")
+bazel_dep(name = "rules_vivado", version = "4.1.1")
+bazel_dep(name = "toolchains_llvm", version = "1.12.0")
+
+# This workspace tests the modules before they are released.
+local_path_override(module_name = "rules_firesim", path = "..")
+local_path_override(module_name = "chipyard_scala", path = "../chipyard_scala")
+archive_override(
+    module_name = "firesim_goldengate",
+    urls = ["file:///data/tmp/ai/pub/bazel_firesim_goldengate/bazel-bin/firesim_goldengate-1.22.0.zip"],
+)
+
+# --- What every consumer of the Chipyard modules states (README.md) ---
+
+# Scala 2.13.16, Chipyard's: rules_scala takes the version from the root
+# module only, and Chisel 6.7.0's plugin is built for 2.13.16 exactly.
+scala_config = use_extension("@rules_scala//scala/extensions:config.bzl", "scala_config")
+scala_config.settings(scala_version = "2.13.16")
+
+scala_deps = use_extension("@rules_scala//scala/extensions:deps.bzl", "scala_deps")
+scala_deps.scala()
+scala_deps.overridden_artifact(
+    name = "io_bazel_rules_scala_scala_compiler",
+    artifact = "org.scala-lang:scala-compiler:2.13.16",
+    sha256 = "f59982714591e321ba9c087af2c8666e2f5fb92b11a0cef72c2c5e9b342152d3",
+    deps = [
+        "@io_bazel_rules_scala_scala_library",
+        "@io_bazel_rules_scala_scala_reflect",
+        "@io_github_java_diff_utils_java_diff_utils",
+        "@org_jline_jline",
+    ],
+)
+scala_deps.overridden_artifact(
+    name = "io_bazel_rules_scala_scala_library",
+    artifact = "org.scala-lang:scala-library:2.13.16",
+    sha256 = "1ebb2b6f9e4eb4022497c19b1e1e825019c08514f962aaac197145f88ed730f1",
+)
+scala_deps.overridden_artifact(
+    name = "io_bazel_rules_scala_scala_reflect",
+    artifact = "org.scala-lang:scala-reflect:2.13.16",
+    sha256 = "fb49ccd9cac7464486ab993cda20a3c1569d8ef26f052e897577ad2a4970fb1d",
+    deps = ["@io_bazel_rules_scala_scala_library"],
+)
+
+# Chipyard's libraries compile against full transitive classpaths, as sbt's.
+register_toolchains("@chipyard_scala//:transitive_scala")
+
+# A C++ toolchain for the host driver and Spike.
+llvm = use_extension("@toolchains_llvm//toolchain/extensions:llvm.bzl", "llvm")
+llvm.toolchain(llvm_version = "20.1.8")
+use_repo(llvm, "llvm_toolchain")
+register_toolchains("@llvm_toolchain//:all")
+
+# Vivado, hermetic, from this machine's shared install cache.
+vivado = use_extension("@rules_vivado//:extensions.bzl", "vivado")
+vivado.install(
+    install_cache = "/data/cache/vivado-install",
+    urls = ["file:///data/tools/archives/FPGAs_AdaptiveSoCs_Unified_SDI_2025.2_1114_2157_1.tar"],
+    modules = ["Artix-7"],
+)

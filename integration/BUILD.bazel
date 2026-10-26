@@ -1,0 +1,28 @@
+load("@rules_firesim//firesim:defs.bzl", "firesim_bitstream", "firesim_driver", "firesim_elaborate", "firesim_goldengate")
+
+firesim_elaborate(
+    name = "rocket",
+    config = "firechip.chip:FireSimRocket1GiBDRAMConfig",
+    generator = "@chipyard_firechip//:generator",
+    top_module = "firechip.chip.FireSim",
+)
+
+firesim_goldengate(
+    name = "rocket_nitefury",
+    platform_config = "firesim.configs:BaseNitefuryConfig",
+    target = ":rocket",
+)
+
+firesim_driver(
+    name = "rocket_nitefury_driver",
+    design = ":rocket_nitefury",
+    driver_lib = "@chipyard_firechip//:firechip_driver_lib",
+)
+
+# The recipe's platform_config_args: fpga_frequency 50, build_strategy TIMING.
+firesim_bitstream(
+    name = "rocket_nitefury_bitstream",
+    design = ":rocket_nitefury",
+    lock = "/data/cache/vivado-install/vivado.lock",
+    tags = ["manual"],
+)

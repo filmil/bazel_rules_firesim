@@ -1,0 +1,21 @@
+load("@rules_scala//scala:scala_toolchain.bzl", "scala_toolchain")
+
+exports_files(["defs.bzl"])
+
+# Chipyard's projects are written against sbt, which compiles every library
+# against its full transitive classpath. rules_scala's default gives each
+# library only its direct dependencies; this toolchain matches sbt. The root
+# module registers it; see README.md.
+scala_toolchain(
+    name = "transitive_scala_impl",
+    dependency_mode = "transitive",
+    strict_deps_mode = "off",
+    unused_dependency_checker_mode = "off",
+)
+
+toolchain(
+    name = "transitive_scala",
+    toolchain = ":transitive_scala_impl",
+    toolchain_type = "@rules_scala//scala:toolchain_type",
+    visibility = ["//visibility:public"],
+)

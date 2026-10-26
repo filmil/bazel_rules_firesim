@@ -1,0 +1,106 @@
+# rules_firesim
+
+Bazel rules for [FireSim](https://fires.im) 1.22.0: a target design goes from
+Chisel to a bitstream and a host driver, built from source, without sbt,
+conda or a Vivado project on the host.
+
+    firesim_elaborate   the target, to legacy SFC FIRRTL (Chipyard's generator)
+    firesim_goldengate  Golden Gate: FireSim-generated.sv, the driver header, XDCs
+    firesim_driver      the host driver for one design and platform
+    firesim_bitstream   the board project's own build script, under rules_vivado
+
+Platforms: FireSim's RHS Research Nitefury II (`xc7a200tfbg484-2`), on
+Vivado 2025.2. FireSim's own flow for it is pinned to Vivado 2022.1; the one
+change 2025.2 needs (XDMA 4.1 to 4.2) is a patch in
+`firesim_platform_nitefury`.
+
+## The module net
+
+Everything comes from the [filmil registry](https://github.com/filmil/bazel-registry)
+and the BCR. Most modules are registry overlays over an upstream commit, at
+the commits Chipyard 1.15.0 pins:
+
+    rules_firesim ─┬─ firesim_goldengate   Golden Gate, a prebuilt jar
+                   ├─ firesim_target       FireSim's target-side library and driver sources
+                   ├─ firesim_platform_nitefury   the board project
+                   └─ rules_vivado
+    chipyard_firechip ─┬─ testchipip, icenet, riscv_boom, pmu, constellation,
+                       │  bar_fetchers, shuttle, rerocc, rocket_chip_blocks,
+                       │  rocket_chip_inclusive_cache, firrtl2, riscv_isa_sim
+                       └─ rocket_chip ─┬─ diplomacy ── cde
+                                       └─ berkeley_hardfloat
+    every Chisel module ── chipyard_scala  (this repo's chipyard_scala/)
+
+`chipyard_scala` holds what the Chisel modules share: the `chisel6_library`
+macro, the one Maven set (`@chipyard_maven`), and a Scala toolchain that
+compiles against full transitive classpaths, as sbt does.
+
+Golden Gate is a separate Scala world (Chisel 3.6.1), and rules_scala takes
+its Scala version from the root module only, so it is built in its own
+repository, [bazel_firesim_goldengate](https://github.com/filmil/bazel_firesim_goldengate),
+and used here as a tool.
+
+## Use
+
+`.bazelrc`:
+
+    common --registry=https://raw.githubusercontent.com/filmil/bazel-registry/main
+    common --registry=https://bcr.bazel.build
+
+`MODULE.bazel` needs, besides the `bazel_dep`s, what only the root module can
+state: Scala 2.13.16 (Chisel 6.7.0's plugin is built for it exactly), the
+transitive toolchain, a C++ toolchain and Vivado. See
+[`integration/MODULE.bazel`](integration/MODULE.bazel), which is the whole
+of it.
+
+`BUILD.bazel`, FireSim's `nitefury_firesim_rocket_singlecore_no_nic` recipe:
+
+```starlark
+load("@rules_firesim//firesim:defs.bzl", "firesim_bitstream", "firesim_driver", "firesim_elaborate", "firesim_goldengate")
+
+firesim_elaborate(
+    name = "rocket",
+    config = "firechip.chip:FireSimRocket1GiBDRAMConfig",
+    generator = "@chipyard_firechip//:generator",
+    top_module = "firechip.chip.FireSim",
+)
+
+firesim_goldengate(
+    name = "rocket_nitefury",
+    platform_config = "firesim.configs:BaseNitefuryConfig",
+    target = ":rocket",
+)
+
+firesim_driver(
+    name = "rocket_nitefury_driver",
+    design = ":rocket_nitefury",
+    driver_lib = "@chipyard_firechip//:firechip_driver_lib",
+)
+
+firesim_bitstream(
+    name = "rocket_nitefury_bitstream",
+    design = ":rocket_nitefury",
+    tags = ["manual"],
+)
+```
+
+On one machine (eph4), from a warm cache: elaboration and Golden Gate take
+about 1.5 minutes, the bitstream about 30 (WNS +0.318 ns, 69% of LUTs).
+
+## Notes
+
+- **Source locators.** Chisel writes each locator as the file's real path,
+  and Bazel's external repositories resolve into the repository cache, so
+  the rules rewrite each to its path inside its repository. Without that, the
+  Verilog would hold the build machine's paths.
+- **Left out of Chipyard.** `chipyard_firechip` builds without dsptools (the
+  source exclusions Chipyard itself uses under Chisel 7) and without the
+  optional generators; a patch drops the ten FireChip configs that name
+  those (NVDLA, Saturn, Gemmini, CVA6, Radiance).
+- **No firtool.** FireSim's flow has Golden Gate write the Verilog, so
+  CIRCT is not needed.
+- **Vivado** runs on the host, from rules_vivado's hermetic install; docker
+  mode is not supported yet. `firesim_bitstream` uses rules_vivado's
+  internal `vivado_config` until rules_vivado exports it.
+- **Running a simulation** needs the board on PCIe (XDMA). The driver builds
+  and stops where it looks for the device.
