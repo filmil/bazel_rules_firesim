@@ -46,34 +46,49 @@ jobs:
       - name: Build the design
         working-directory: integration
         run: bazel build //:rocket_nitefury
-      # A reproducible tarball: sorted names, fixed times and owners.
-      # goldengate.log is left out, as it holds timings.
+      # A reproducible tarball: C-locale sorted names, fixed modes, times
+      # and owners. goldengate.log is left out, as it holds timings.
       - name: Package
         working-directory: integration
+        env:
+          TAG: ${{ inputs.tag_name }}
+          LC_ALL: C
         run: |
           set -o errexit -o nounset -o pipefail
-          tag="${{ inputs.tag_name }}"
-          name="rocket_nitefury-${tag}"
+          name="rocket_nitefury-${TAG}"
           out="${GITHUB_WORKSPACE}/${name}"
           mkdir -p "${out}"
           cp bazel-bin/rocket_nitefury/FireSim-generated.* "${out}/"
-          chmod 0644 "${out}"/*
+          # Exactly the five files consumers expect, no more, no fewer.
+          expected="FireSim-generated.const.h FireSim-generated.defines.vh FireSim-generated.implementation.xdc FireSim-generated.sv FireSim-generated.synthesis.xdc"
+          got="$(cd "${out}" && echo FireSim-generated.*)"
+          if [ "${got}" != "${expected}" ]; then
+            echo "unexpected outputs: ${got}" >&2
+            exit 1
+          fi
           {
             echo "design: rocket_nitefury"
             echo "target_config: firechip.chip:FireSimRocket1GiBDRAMConfig"
             echo "platform_config: firesim.configs:BaseNitefuryConfig"
-            echo "rules_firesim: ${tag} (${GITHUB_SHA})"
+            echo "rules_firesim: ${TAG} ($(git rev-parse HEAD))"
             echo "files:"
             (cd "${out}" && sha256sum FireSim-generated.* | sed 's/^/  /')
           } > "${out}/PROVENANCE.txt"
+          chmod 0755 "${out}"
+          chmod 0644 "${out}"/*
           cd "${GITHUB_WORKSPACE}"
           tar --sort=name --mtime=@0 --owner=0 --group=0 --numeric-owner \
             -cf - "${name}" | gzip -n -9 > "${name}.tar.gz"
+          # The archive unpacks to the same files.
+          check="$(mktemp -d)"
+          tar -xzf "${name}.tar.gz" -C "${check}"
+          (cd "${check}/${name}" && sed -n 's/^  //p' PROVENANCE.txt | sha256sum -c -)
           sha256sum "${name}.tar.gz" | tee "${name}.tar.gz.sha256"
           echo "TARBALL=${name}.tar.gz" >> "${GITHUB_ENV}"
       - name: Attach to the release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ inputs.tag_name }}
         run: |
-          gh release upload "${{ inputs.tag_name }}" \
+          gh release upload "${TAG}" \
             "${TARBALL}" "${TARBALL}.sha256" --clobber -R "${GITHUB_REPOSITORY}"
