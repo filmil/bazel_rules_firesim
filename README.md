@@ -136,6 +136,32 @@ are made by genrules.
 and `mkregistry.py`, which writes the registry entries from them. A later
 Chipyard means new pins and a re-run.
 
+## Releasing
+
+A release publishes this repository's own two modules, `rules_firesim`
+and `chipyard_scala`, to the filmil registry; the upstream modules under
+`registry/` are written by `mkregistry.py` as above.
+
+- **Tag and Release** (`.github/workflows/tag-and-release.yml`), run by
+  hand, tags `main` with the next version, from the commits since the last
+  tag (`fix:` or `perf:` a patch, `feat:` a minor, `BREAKING CHANGE` a
+  major; with only other kinds of commit there is no release), and uploads
+  `bazel_rules_firesim-<tag>.zip`, the tree without `.git`.
+- It then calls **Publish** (`.github/workflows/publish.yml`), which runs
+  [publish-to-bcr](https://github.com/bazel-contrib/publish-to-bcr)
+  against `filmil/bazel-registry` and opens one pull request there with an
+  entry for each module. `.bcr/config.yml` names both module roots; the
+  templates under `.bcr/` and `.bcr/chipyard_scala/` give each entry its
+  metadata, its source (the same zip, `chipyard_scala` with
+  `strip_prefix`) and its presubmit. The entry's `MODULE.bazel` takes its
+  version from the tag.
+- Publish needs the repository secret `BCR_PUBLISH_TOKEN`, a token that
+  can push to `filmil/bazel-registry`. Publish can also be run by hand on
+  an existing tag.
+
+Not the BCR: these modules depend on the overlay modules, which are in
+the filmil registry only.
+
 ## Notes
 
 - **Linux only,** as FireSim and Vivado are.
