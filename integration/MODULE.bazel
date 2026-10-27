@@ -5,6 +5,8 @@ module(name = "rules_firesim_integration")
 
 bazel_dep(name = "rules_firesim", version = "0.1.0")
 bazel_dep(name = "chipyard_firechip", version = "1.15.0")
+# For the driver that names FireSim's own platform file as its `simif`.
+bazel_dep(name = "firesim_target", version = "1.22.0.bcr.1")
 bazel_dep(name = "chipyard_scala", version = "0.1.0")
 bazel_dep(name = "rules_scala", version = "7.4.0")
 bazel_dep(name = "rules_jvm_external", version = "6.7")
