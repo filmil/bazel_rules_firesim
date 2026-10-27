@@ -144,9 +144,10 @@ and `chipyard_scala`, to the filmil registry; the upstream modules under
 
 - **Tag and Release** (`.github/workflows/tag-and-release.yml`), run by
   hand, tags `main` with the next version, from the commits since the last
-  tag (`fix:` or `perf:` a patch, `feat:` a minor, `BREAKING CHANGE` a
-  major; with only other kinds of commit there is no release), and uploads
-  `bazel_rules_firesim-<tag>.zip`, the tree without `.git`.
+  tag (`feat:` a minor, a breaking change a major, anything else a
+  patch), once both modules resolve against the registries. It makes the
+  tag and the release together, with `bazel_rules_firesim-<tag>.zip`,
+  `git archive` of the commit, as the earlier releases were.
 - It then calls **Publish** (`.github/workflows/publish.yml`), which runs
   [publish-to-bcr](https://github.com/bazel-contrib/publish-to-bcr)
   against `filmil/bazel-registry` and opens one pull request there with an
