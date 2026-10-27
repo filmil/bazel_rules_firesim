@@ -22,7 +22,9 @@ permissions:
 
 jobs:
   rocket_nitefury:
-    runs-on: ubuntu-latest
+    # Not ubuntu-latest: Ubuntu 26.04 has no libxml2.so.2, which the ld.lld
+    # of toolchains_llvm's LLVM 20.1.8 needs, so every link fails there.
+    runs-on: ubuntu-24.04
     # A cold build took 62 minutes on half of a workstation; a runner is slower.
     timeout-minutes: 300
     steps:
