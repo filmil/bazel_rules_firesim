@@ -32,9 +32,11 @@ jobs:
           ref: ${{ inputs.tag_name }}
       # The output base holds the JVM and C++ toolchains and the Maven set;
       # the runner's preinstalled SDKs are removed to make room for it.
+      # Not the Android SDK: ANDROID_HOME stays set, and rules_android
+      # fails on an SDK directory that is gone.
       - name: Free disk space
         run: |
-          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          sudo rm -rf /usr/share/dotnet /opt/ghc /opt/hostedtoolcache/CodeQL
           df -h /
       - name: Setup bazel
         uses: bazel-contrib/setup-bazel@0.15.0
