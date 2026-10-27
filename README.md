@@ -159,6 +159,14 @@ and `chipyard_scala`, to the filmil registry; the upstream modules under
 - Publish needs the repository secret `BCR_PUBLISH_TOKEN`, a token that
   can push to `filmil/bazel-registry`. Publish can also be run by hand on
   an existing tag.
+- It also calls **Prebuilt designs** (`.github/workflows/prebuilt.yml`).
+  It builds `//:rocket_nitefury` in `integration/` and attaches
+  `rocket_nitefury-<tag>.tar.gz` to the release.
+  The tarball holds Golden Gate's outputs (`FireSim-generated.sv`,
+  `.const.h`, `.defines.vh` and the two `.xdc` files) and `PROVENANCE.txt`.
+  A consumer fetches it by sha256 and needs no Scala toolchain.
+  The build needs no Vivado.
+  Prebuilt designs can also be run by hand on an existing tag.
 
 Not the BCR: these modules depend on the overlay modules, which are in
 the filmil registry only.

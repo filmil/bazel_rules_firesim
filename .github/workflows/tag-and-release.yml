@@ -108,3 +108,11 @@ jobs:
       tag_name: ${{ needs.tag.outputs.tag_name }}
     secrets:
       BCR_PUBLISH_TOKEN: ${{ secrets.BCR_PUBLISH_TOKEN }}
+
+  # The standard designs, built from this tag and attached to its release.
+  prebuilt:
+    needs: tag
+    if: ${{ needs.tag.outputs.tag_name != '' }}
+    uses: ./.github/workflows/prebuilt.yml
+    with:
+      tag_name: ${{ needs.tag.outputs.tag_name }}
