@@ -22,7 +22,9 @@ permissions:
 
 jobs:
   rocket_nitefury:
-    runs-on: ubuntu-latest
+    # Not ubuntu-latest: Ubuntu 26.04 has no libxml2.so.2, which the ld.lld
+    # of toolchains_llvm's LLVM 20.1.8 needs, so every link fails there.
+    runs-on: ubuntu-24.04
     # A cold build took 62 minutes on half of a workstation; a runner is slower.
     timeout-minutes: 300
     steps:
@@ -32,9 +34,11 @@ jobs:
           ref: ${{ inputs.tag_name }}
       # The output base holds the JVM and C++ toolchains and the Maven set;
       # the runner's preinstalled SDKs are removed to make room for it.
+      # Not the Android SDK: ANDROID_HOME stays set, and rules_android
+      # fails on an SDK directory that is gone.
       - name: Free disk space
         run: |
-          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          sudo rm -rf /usr/share/dotnet /opt/ghc /opt/hostedtoolcache/CodeQL
           df -h /
       - name: Setup bazel
         uses: bazel-contrib/setup-bazel@0.15.0
