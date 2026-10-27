@@ -1,0 +1,5 @@
+# Two modules come from each release: rules_firesim at the root and
+# chipyard_scala under chipyard_scala/, the same zip with a different
+# strip_prefix. publish-to-bcr takes each root's templates from .bcr/
+# and from .bcr/<root>/.
+moduleRoots: [".", "chipyard_scala"]
