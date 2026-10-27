@@ -5,8 +5,8 @@ on:
   workflow_call:
     secrets:
       BCR_PUBLISH_TOKEN:
-        required: false
-        description: 'Optional token for BCR publishing.'
+        required: true
+        description: 'A token that can push to filmil/bazel-registry.'
     inputs:
       tag_name:
         required: true

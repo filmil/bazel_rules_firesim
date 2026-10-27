@@ -6,11 +6,15 @@ name: Tag and Release
 on:
   workflow_dispatch:
 
+# Pushing the tag, making the release and calling Publish, which asks for
+# the same three.
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+
 jobs:
-  # The scheduled run used to bump a version whether or not anything had
-  # landed, so the same tree was released again and again (see the tags that
-  # share one commit). This job asks the only question that matters -- did
-  # anything get committed since the last release? -- and every job below
+  # Did anything get committed since the last release? Every job below
   # hangs off the answer.
   check:
     runs-on: ubuntu-latest
@@ -48,56 +52,53 @@ jobs:
     outputs:
       tag_name: ${{ steps.tag_version.outputs.new_tag }}
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - name: Setup bazel
         uses: bazel-contrib/setup-bazel@0.15.0
         with:
           bazelisk-cache: true
-          disk-cache: ${{ github.workflow }}
           repository-cache: true
-      - name: Checkout
-        uses: actions/checkout@v3
-      - name: Bump version and push tag
+      # A design needs Chisel's generator and Vivado, which a runner does
+      # not have, so the check before a release is that both modules
+      # resolve against the registries a consumer uses.
+      - name: Both modules resolve
+        run: |
+          set -o errexit -o nounset -o pipefail
+          regs="--registry=https://raw.githubusercontent.com/filmil/bazel-registry/main --registry=https://bcr.bazel.build"
+          bazel mod graph ${regs} > /dev/null
+          (cd chipyard_scala && bazel mod graph ${regs} > /dev/null)
+      # The next version from the commits since the last tag: `fix:` or
+      # `perf:` a patch, `feat:` a minor, a breaking change a major, and a
+      # patch for anything else, since a run of this workflow is a request
+      # for a release. Only computed here: the release step below makes
+      # the tag, so a tag never exists without its release and its zip.
+      - name: Next version
         id: tag_version
         uses: mathieudutour/github-tag-action@v6.2
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           release_branches: main
-          # Without this the action bumps the patch version on every run, even
-          # when no commit landed since the last tag. The cron then released the
-          # same tree again and again. `false` makes the action emit an empty
-          # `new_tag` when no commit asks for a release, and the guards below
-          # then skip the release and the publication.
-          default_bump: false
-      - name: Create a GitHub release
-        if: ${{ steps.tag_version.outputs.new_tag != '' }}
+          default_bump: patch
+          dry_run: true
+      # The same archive the hand-made releases were: `git archive` of the
+      # commit, so the tree as committed and nothing else.
+      - name: Source archive
+        run: |
+          set -o errexit -o nounset -o pipefail
+          repo="${GITHUB_REPOSITORY#*/}"
+          tag="${{ steps.tag_version.outputs.new_tag }}"
+          git archive --format=zip -o "${repo}-${tag}.zip" HEAD
+          echo "ZIP=${repo}-${tag}.zip" >> "${GITHUB_ENV}"
+      - name: Tag and release, with the archive
         uses: ncipollo/release-action@v1
         with:
           tag: ${{ steps.tag_version.outputs.new_tag }}
+          commit: ${{ github.sha }}
           generateReleaseNotes: true
-      - name: Get release tag
-        if: ${{ steps.tag_version.outputs.new_tag != '' }}
-        id: get_version
-        run: echo "VERSION=${{ steps.tag_version.outputs.new_tag }}" >> $GITHUB_ENV
-      - name: Get repo name
-        if: ${{ steps.tag_version.outputs.new_tag != '' }}
-        id: get_repo_name
-        run: echo "REPO_NAME=$(echo '${{ github.repository }}' | awk -F '/' '{print $2}')" >> $GITHUB_ENV
-      - name: "Publish source archive"
-        if: ${{ steps.tag_version.outputs.new_tag != '' }}
-        uses: thedoctor0/zip-release@0.7.5
-        with:
-          type: 'zip'
-          filename: "${{ env.REPO_NAME }}-${{ env.VERSION }}.zip"
-          exclusions: '*.git* /*node_modules/* .editorconfig /bazel-*'
-      - name: "Upload source archive"
-        if: ${{ steps.tag_version.outputs.new_tag != '' }}
-        uses: ncipollo/release-action@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag: ${{ steps.tag_version.outputs.new_tag }}
-          allowUpdates: true
-          artifacts: "${{ env.REPO_NAME }}-${{ env.VERSION }}.zip"
+          artifacts: ${{ env.ZIP }}
 
   publish:
     needs: tag
@@ -107,4 +108,3 @@ jobs:
       tag_name: ${{ needs.tag.outputs.tag_name }}
     secrets:
       BCR_PUBLISH_TOKEN: ${{ secrets.BCR_PUBLISH_TOKEN }}
-
