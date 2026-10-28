@@ -94,6 +94,13 @@ filegroup(
 # Spike, from its own autoconf, without Boost (its optional debugger and
 # remote bitbang interface). libfesvr carries the TSI and DTM front-ends
 # FireSim's bridges use; libriscv carries cospike's ISA model.
+#
+# Every library is static (riscv-isa-sim-static-libs.patch): Spike's
+# Makefile builds each one's .a and installed libriscv and libsoftfloat as
+# .so only, so a driver needed them beside it at run time, and a driver
+# given cap_net_raw can't find them there (bazel_rules_firesim#10). The
+# order is the link order: each library before the ones it uses.
+# libcustomext, a plugin loaded by path, is not exported.
 configure_make(
     name = "riscv_isa_sim",
     configure_options = ["--without-boost", "--without-boost-asio", "--without-boost-regex"],
@@ -101,8 +108,7 @@ configure_make(
     build_data = ["@dtc//:dtc"],
     env = {"DTC": "$$EXT_BUILD_ROOT$$/$(execpath @dtc//:dtc)"},
     out_include_dir = "include",
-    out_shared_libs = ["libriscv.so", "libsoftfloat.so", "libcustomext.so"],
-    out_static_libs = ["libfesvr.a", "libdisasm.a"],
+    out_static_libs = ["libriscv.a", "libdisasm.a", "libfesvr.a", "libsoftfloat.a", "libfdt.a"],
     args = ["-j8"],
     visibility = ["//visibility:public"],
 )
@@ -175,14 +181,15 @@ for name, (pin, trial, deps, maven, patches, targets) in MODULES.items():
                 {"MODULE.bazel": module_bazel(name, version, deps, maven), "BUILD.bazel": build},
                 patches, targets, "https://github.com/" + repo, "github:" + repo)
 
-# Spike, at Chipyard 1.15.0's pin.
-write_entry("riscv_isa_sim", CY,
+# Spike, at Chipyard 1.15.0's pin. .bcr.1: its libraries static.
+SPIKE = CY + ".bcr.1"
+write_entry("riscv_isa_sim", SPIKE,
     "https://github.com/riscv-software-src/riscv-isa-sim/archive/9c190a07c6838f6392bafa4ad83acea462c7f759.tar.gz",
     "riscv-isa-sim-9c190a07c6838f6392bafa4ad83acea462c7f759",
     sri_hex("586d92f4cc3a2a2dead3b6c10274789d2618b468735ec296aaea822edc800e3b"),
-    {"MODULE.bazel": module_bazel("riscv_isa_sim", CY, [("rules_foreign_cc", "0.15.1"), ("dtc", "1.7.2.bcr.2")], False),
+    {"MODULE.bazel": module_bazel("riscv_isa_sim", SPIKE, [("rules_foreign_cc", "0.15.1"), ("dtc", "1.7.2.bcr.2")], False),
      "BUILD.bazel": RISCV_ISA_SIM_BUILD},
-    [], ["@riscv_isa_sim//:riscv_isa_sim"], "https://github.com/riscv-software-src/riscv-isa-sim",
+    ["riscv-isa-sim-static-libs.patch"], ["@riscv_isa_sim//:riscv_isa_sim"], "https://github.com/riscv-software-src/riscv-isa-sim",
     "github:riscv-software-src/riscv-isa-sim")
 
 # The Nitefury II board project, at FireSim 1.22.0's submodule pin.
