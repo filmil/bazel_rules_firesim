@@ -89,6 +89,16 @@ firesim_bitstream(
 On one machine (eph4), from a warm cache: elaboration and Golden Gate take
 about 1.5 minutes, the bitstream about 30 (WNS +0.318 ns, 69% of LUTs).
 
+A driver links Spike's `libriscv` and `libsoftfloat`, which
+`chipyard_firechip` takes from `riscv_isa_sim` `0.0.0-chipyard.1.15.0` as
+shared libraries: the driver then needs them beside it at run time, and a
+driver given a file capability (such as `cap_net_raw`) ignores
+`LD_LIBRARY_PATH`. For a driver that is one file, name the static build:
+
+```starlark
+bazel_dep(name = "riscv_isa_sim", version = "0.0.0-chipyard.1.15.0.bcr.1")
+```
+
 ## Opt-in: the Nitefury shell without a block design
 
 `firesim_bitstream` runs the board project's own script. As an
